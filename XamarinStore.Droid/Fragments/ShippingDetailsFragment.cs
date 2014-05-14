@@ -12,12 +12,18 @@ using Android.Views;
 using Android.Widget;
 using Android.Views.InputMethods;
 using System.Threading.Tasks;
+using Xamarin.Geolocation;
+using Android.Locations;
 
 namespace XamarinStore
 {
 	public class ShippingDetailsFragment : Fragment
 	{
 		User user;
+		AutoCompleteTextView state;
+		AutoCompleteTextView country;
+		EditText streetAddress1, city, postalCode;
+		Geolocator locator;
 
 		public ShippingDetailsFragment() : this(new User()) {}
 
@@ -30,10 +36,9 @@ namespace XamarinStore
 		{
 			base.OnCreate (savedInstanceState);
 			RetainInstance = true;
+			SetHasOptionsMenu (true);
 		}
 
-		AutoCompleteTextView state;
-		AutoCompleteTextView country;
 		public override View OnCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
 		{
 			var shippingDetailsView = inflater.Inflate(Resource.Layout.ShippingDetails, container, false);
@@ -48,19 +53,19 @@ namespace XamarinStore
 			var lastName = shippingDetailsView.FindViewById<EditText> (Resource.Id.LastName);
 			lastName.Text = user.LastName;
 
-			var streetAddress1 = shippingDetailsView.FindViewById<EditText> (Resource.Id.StreetAddress1);
+			streetAddress1 = shippingDetailsView.FindViewById<EditText> (Resource.Id.StreetAddress1);
 			streetAddress1.Text = user.Address;
 
 			var streetAddress2 = shippingDetailsView.FindViewById<EditText> (Resource.Id.StreetAddress2);
 			streetAddress2.Text = user.Address2;
 
-			var city = shippingDetailsView.FindViewById<EditText> (Resource.Id.City);
+			city = shippingDetailsView.FindViewById<EditText> (Resource.Id.City);
 			city.Text = user.City;
 
 			state = shippingDetailsView.FindViewById<AutoCompleteTextView> (Resource.Id.State);
 			state.Text = user.State;
 
-			var postalCode = shippingDetailsView.FindViewById<EditText> (Resource.Id.PostalCode);
+			postalCode = shippingDetailsView.FindViewById<EditText> (Resource.Id.PostalCode);
 			postalCode.Text = user.ZipCode;
 
 			country = shippingDetailsView.FindViewById<AutoCompleteTextView> (Resource.Id.Country);
@@ -91,7 +96,29 @@ namespace XamarinStore
 			};
 			LoadCountries ();
 			LoadStates ();
+
+			CheckGeoAvailable ();
+
 			return 	shippingDetailsView;
+		}
+
+		public override void OnCreateOptionsMenu (IMenu menu, MenuInflater inflater)
+		{
+			inflater.Inflate (Resource.Menu.shipping, menu);
+			base.OnCreateOptionsMenu (menu, inflater);
+		}
+
+		public override bool OnOptionsItemSelected (IMenuItem item)
+		{
+			switch (item.ItemId) {
+			case Resource.Id.findlocation_menu_item:
+				GetLocation ();
+				return true;
+
+			default:
+				return base.OnOptionsItemSelected (item);
+			}
+
 		}
 
 		async void LoadCountries()
@@ -128,6 +155,69 @@ namespace XamarinStore
 		}
 
 		public Action OrderPlaced {get;set;}
+	
+	
+		void CheckGeoAvailable()
+		{
+			locator = new Geolocator (this.Activity);
+			if (locator.IsGeolocationAvailable) {
+				AlertDialog.Builder dialog = new AlertDialog.Builder (this.Activity);
+				dialog.SetTitle (Resource.String.app_name);
+				dialog.SetMessage ("Do you like to fill address with your current location ?");
+				dialog.SetCancelable (false);
+
+				dialog.SetPositiveButton (Android.Resource.String.Yes, (object sender, DialogClickEventArgs e) => {
+					GetLocation();
+				});
+
+				dialog.SetNegativeButton (Android.Resource.String.No, (object sender, DialogClickEventArgs e) => {
+					((Dialog)sender).Dismiss();
+				});
+
+				dialog.Show ();
+			}
+		}
+
+		async void GetLocation()
+		{
+			//search for Latitude and Longitude
+			var progressDialog = ProgressDialog.Show(this.Activity, "Please wait...", "Finding Location", true);
+			var t = await locator.GetPositionAsync (timeout: 10000);
+
+			//search for address
+			try {
+				progressDialog.SetMessage ("Finding Address");
+				var geo = new Geocoder (this.Activity);
+				var addresses = await geo.GetFromLocationAsync (t.Latitude, t.Longitude, 1);
+				geo.Dispose ();
+
+
+				if (addresses.Any ()) {
+
+					var address = addresses.First ();
+
+					if (address != null) {
+						streetAddress1.Text = String.Format ("{0} {1}", address.Thoroughfare, address.SubThoroughfare).Trim ();
+						postalCode.Text = address.PostalCode;
+						country.Text = address.CountryName;
+						state.Text = address.AdminArea;
+						city.Text = address.SubAdminArea;
+					}
+
+				} else {
+					Toast.MakeText (Activity, "Sorry :(... Address not found", ToastLength.Long).Show ();
+				}
+
+			} catch (Exception) {
+
+				Toast.MakeText (Activity, "We have a problem", ToastLength.Long).Show ();
+			}
+
+
+
+			progressDialog.Dismiss ();
+
+		}
 	}
 
 }

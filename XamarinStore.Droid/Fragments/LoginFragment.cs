@@ -67,8 +67,8 @@ namespace XamarinStore
 			var textView = view.FindViewById<EditText> (Resource.Id.email);
 			textView.Enabled = false;
 			textView.Text = XamarinAccountEmail;
-
 			password = view.FindViewById<EditText> (Resource.Id.password);
+
 			login = view.FindViewById<Button> (Resource.Id.signInBtn);
 			login.Click += (object sender, EventArgs e) => {
 				Login(XamarinAccountEmail,password.Text);
@@ -96,6 +96,7 @@ namespace XamarinStore
 			var success = await WebService.Shared.Login (username, password);
 			if (success) {
 				var canContinue = await WebService.Shared.PlaceOrder (WebService.Shared.CurrentUser, true);
+
 				if (!canContinue.Success) {
 					Toast.MakeText (this.Activity,"Sorry, only one shirt per person. Edit your cart and try again.", ToastLength.Long).Show();
 				}

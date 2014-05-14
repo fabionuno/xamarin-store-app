@@ -5,12 +5,15 @@ using MonoTouch.Foundation;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using Xamarin.Geolocation;
+using MonoTouch.CoreLocation;
 
 namespace XamarinStore
 {
 	public class ShippingAddressViewController : UITableViewController
 	{
 		User user;
+		Geolocator locator;
 
 		public event EventHandler ShippingComplete;
 
@@ -34,6 +37,12 @@ namespace XamarinStore
 			this.user = user;
 			TableView.SeparatorStyle = UITableViewCellSeparatorStyle.None;
 
+			UIImage gpsImage = UIImage.FromFile ("ic_gps.png");
+			this.NavigationItem.RightBarButtonItem = new UIBarButtonItem(gpsImage,UIBarButtonItemStyle.Plain, (object sender, EventArgs e) => {
+				GetLocation();
+			});
+
+			
 
 			Cells.Add (new CustomViewCell (FirstNameField = new TextEntryView {
 				PlaceHolder = "First Name",
@@ -101,6 +110,8 @@ namespace XamarinStore
 				ButtonText = "Place Order",
 				ButtonTapped = PlaceOrder,
 			});
+
+			CheckGeoAvailable ();
 
 		}
 
@@ -181,6 +192,65 @@ namespace XamarinStore
 
 				tableView.DeselectRow (indexPath, true);
 			}
+
+
+		}
+
+		void CheckGeoAvailable()
+		{
+			locator = new Geolocator ();
+			if (locator.IsGeolocationAvailable) {
+				UIAlertView dialog = new UIAlertView ("Xamarin Store", "Do you like to fill address with your current location ?", null, "Yes", new string[] {"No"});
+				dialog.Clicked += (object sender, UIButtonEventArgs e) => {
+					if (e.ButtonIndex == 0)
+						GetLocation();
+				};
+				dialog.Show ();
+			}
+		}
+
+		async void GetLocation()
+		{
+			//search for Latitude and Longitude
+			BTProgressHUD.Show ("Finding Location...");
+			try {
+				var userLocation = await locator.GetPositionAsync (timeout: 10000);
+
+				//search for address
+				BTProgressHUD.Dismiss();
+				BTProgressHUD.Show ("Finding Address...");
+				CLGeocoder geo = new CLGeocoder();
+				CLLocation position = new CLLocation(userLocation.Latitude,userLocation.Longitude);
+				var addresses = await geo.ReverseGeocodeLocationAsync(position);
+				geo.Dispose();
+
+				if (addresses.Any()) {
+					CLPlacemark placemark = addresses.FirstOrDefault();
+
+					if (placemark != null) {
+						AddressField.Value = String.Format ("{0} {1}", placemark.Thoroughfare, placemark.SubThoroughfare).Trim ();
+						PostalField.Value = placemark.PostalCode;
+						CountryField.Value = placemark.Country;
+						StateField.Value = placemark.AdministrativeArea;
+						CityField.Value =  placemark.SubAdministrativeArea;
+					}
+				} else {
+					new UIAlertView ("Xamarin Store", "Sorry :(... Address not found", null, "OK").Show();
+				}
+				
+
+			} catch (Xamarin.Geolocation.GeolocationException e) {
+				if (e.Error == GeolocationError.Unauthorized)
+					new UIAlertView ("Xamarin Store cannot access your location", "To enable this, go to your Settings App > Privacy > Location Services", null, "OK").Show();
+
+			} catch (Exception) {
+
+				new UIAlertView ("Xamarin Store", "We have a problem", null, "OK").Show();
+
+			}
+
+			BTProgressHUD.Dismiss ();
+
 		}
 	}
 }

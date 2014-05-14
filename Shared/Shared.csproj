@@ -3,8 +3,6 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>10.0.0</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{DF3BB782-2483-4149-B8DE-81803CF861B6}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>XamarinStore</RootNamespace>

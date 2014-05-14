@@ -91,6 +91,7 @@ namespace XamarinStore.iOS
 			var success = await WebService.Shared.Login (username, password);
 			if (success) {
 				var canContinue = await WebService.Shared.PlaceOrder (WebService.Shared.CurrentUser, true);
+
 				if (!canContinue.Success) {
 					new UIAlertView ("Sorry", "Only one shirt per person. Edit your cart and try again.", null, "OK").Show();
 					BTProgressHUD.Dismiss ();
